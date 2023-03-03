@@ -1,32 +1,57 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, request, } from '@playwright/test'
+import { TaskModel } from './fixtures/task.model'
+import { deleteTaskByHelper, postTask } from './support/helper'
+import { TasksPage } from './support/pages/tasks'
+import data from './fixtures/task.json'
 
 test('deve poder cadastrar uma nova tarefa', async ({ page, request }) => {
 
-    // Dado que eu tenha uma nova tarefa
-    const taskName = 'Ler um livro de TypeScript'
-    await request.delete('http://localhost:3333/helper/tasks/' + taskName)
+    const task = data.success as TaskModel
 
-    // E que estou na página de cadastro
-    await page.goto('http://localhost:3000')
+    await deleteTaskByHelper(request, task.name)
 
-    // Quando faço o cadastro dessa tarefa
-    const inputTaskName = page.locator('input[class*=InputNewTask]')
-    await inputTaskName.fill(taskName)
+    const tasksPage: TasksPage = new TasksPage(page)
+    await tasksPage.go()
+    await tasksPage.create(task)
+    await tasksPage.shouldHaveTask(task.name)
 
-    await page.click('css=button >> text=Create')
-
-    // Então essa tarefa deve ser exibida na lista
-    // const target = page.locator('.task-item')
-    // const target = page.locator('div[class*=listItem]')
-    const target = page.locator('css=.task-item p >> text=' + taskName)
-    // const target = page.locator('css=.task-item p >> text=${taskName}')
-    await expect(target).toBeVisible()
 })
-    // a const é a definição de um objeto. 
-    // a vantagem é que o código vai evoluir e é importante para implementar
-    // pode usar xpath
-    // await page.click('xpath=//button[contains(text(), "Create")]')
-    // mas tem outra opção de css 
-    // await inputTaskName.press('Enter')
-    // Outra forma de realizar o teste é usando o await direto
-    // await page.fill('input[class*=InputNewTask]', 'Ler um livro de TypeScript')
+
+test('não deve permitir tarefa duplicada', async ({ page, request }) => {
+
+    const task = data.duplicate as TaskModel
+
+    await deleteTaskByHelper(request, task.name)
+    await postTask(request, task)
+
+    const tasksPage: TasksPage = new TasksPage(page)
+    await tasksPage.go()
+    await tasksPage.create(task)
+    await tasksPage.alertHaveText('Task already exists!')
+})
+
+test('campo obrigatório', async({ page }) => {
+    
+    const task = data.required as TaskModel
+
+    const tasksPage: TasksPage = new TasksPage(page)
+    
+    await tasksPage.go()
+    await tasksPage.create(task)
+
+    const inputTaskName = page.locator('input[class*=InputNewTask]')
+    const validationMessage = await inputTaskName.evaluate(e => (e as HTMLInputElement).validationMessage)
+    expect(validationMessage).toEqual('This is a required field')
+})
+
+test.only('deve concluir uma tarefa', async ({ page, request }) => {
+    const task = data.update as TaskModel
+
+    await deleteTaskByHelper(request, task.name)
+    await postTask(request, task)
+
+    const tasksPage: TasksPage = new TasksPage(page)
+
+    await tasksPage.go()
+    await tasksPage.toggle(task.name)
+})
