@@ -4,54 +4,75 @@ import { deleteTaskByHelper, postTask } from './support/helper'
 import { TasksPage } from './support/pages/tasks'
 import data from './fixtures/task.json'
 
-test('deve poder cadastrar uma nova tarefa', async ({ page, request }) => {
+let tasksPage: TasksPage
 
-    const task = data.success as TaskModel
-
-    await deleteTaskByHelper(request, task.name)
-
-    const tasksPage: TasksPage = new TasksPage(page)
-    await tasksPage.go()
-    await tasksPage.create(task)
-    await tasksPage.shouldHaveTask(task.name)
-
+test.beforeEach(({ page }) => {
+    tasksPage = new TasksPage(page)
 })
 
-test('não deve permitir tarefa duplicada', async ({ page, request }) => {
+test.describe('cadastro', () => {
+    test('deve poder cadastrar uma nova tarefa', async ({ request }) => {
 
-    const task = data.duplicate as TaskModel
-
-    await deleteTaskByHelper(request, task.name)
-    await postTask(request, task)
-
-    const tasksPage: TasksPage = new TasksPage(page)
-    await tasksPage.go()
-    await tasksPage.create(task)
-    await tasksPage.alertHaveText('Task already exists!')
-})
-
-test('campo obrigatório', async({ page }) => {
+        const task = data.success as TaskModel
     
-    const task = data.required as TaskModel
-
-    const tasksPage: TasksPage = new TasksPage(page)
+        await deleteTaskByHelper(request, task.name)
     
-    await tasksPage.go()
-    await tasksPage.create(task)
+        await tasksPage.go()
+        await tasksPage.create(task)
+        await tasksPage.shouldHaveTask(task.name)
+    
+    })
+    
+    test('não deve permitir tarefa duplicada', async ({ request }) => {
+    
+        const task = data.duplicate as TaskModel
+    
+        await deleteTaskByHelper(request, task.name)
+        await postTask(request, task)
+    
+        await tasksPage.go()
+        await tasksPage.create(task)
+        await tasksPage.alertHaveText('Task already exists!')
+    })
+    
+    test('campo obrigatório', async({ page }) => {
+        
+        const task = data.required as TaskModel
+    
+        await tasksPage.go()
+        await tasksPage.create(task)
+    
+        const inputTaskName = page.locator('input[class*=InputNewTask]')
+        const validationMessage = await inputTaskName.evaluate(e => (e as HTMLInputElement).validationMessage)
+        expect(validationMessage).toEqual('This is a required field')
+    })
 
-    const inputTaskName = page.locator('input[class*=InputNewTask]')
-    const validationMessage = await inputTaskName.evaluate(e => (e as HTMLInputElement).validationMessage)
-    expect(validationMessage).toEqual('This is a required field')
 })
 
-test.only('deve concluir uma tarefa', async ({ page, request }) => {
-    const task = data.update as TaskModel
+test.describe('atualização', ()=> {
+    test('deve concluir uma tarefa', async ({ request }) => {
+        const task = data.update as TaskModel
+    
+        await deleteTaskByHelper(request, task.name)
+        await postTask(request, task)
+    
+        await tasksPage.go()
+        await tasksPage.toggle(task.name)
+        await tasksPage.shouldBeDone(task.name)
+    
+    })  
+})
 
-    await deleteTaskByHelper(request, task.name)
-    await postTask(request, task)
-
-    const tasksPage: TasksPage = new TasksPage(page)
-
-    await tasksPage.go()
-    await tasksPage.toggle(task.name)
+test.describe('exclusão', ()=> {
+    test('deve excluir uma tarefa', async ({ request }) => {
+        const task = data.delete as TaskModel
+    
+        await deleteTaskByHelper(request, task.name)
+        await postTask(request, task)
+    
+        await tasksPage.go()
+        await tasksPage.remove(task.name)
+        await tasksPage.shouldNotExist(task.name)
+    
+    })  
 })
